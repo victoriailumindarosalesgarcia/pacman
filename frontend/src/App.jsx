@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState } from "react";
 
-const MATRIX = [
+const matrix = [
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
   [0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0],
   [0,1,0,1,0,0,0,1,1,1,0,1,0,1,0,1,0],
@@ -14,58 +14,58 @@ const MATRIX = [
   [0,1,1,1,0,1,0,0,0,0,0,1,0,1,1,1,0],
   [0,1,0,1,0,1,0,1,1,1,0,0,0,1,0,1,0],
   [0,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0],
-  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
-]
-
-const CELL = 25
-const PADX = 250
-const PADY = 5
-const WIDTH  = MATRIX[0].length * CELL + PADX * 2
-const HEIGHT = MATRIX.length   * CELL + PADY * 2
+  [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+];
 
 export default function App() {
-  const [posX, setPosX] = useState(9)  // x (columna) 1-based
-  const [posY, setPosY] = useState(8)  // y (fila)    1-based
+  const [posX, setPosX] = useState(2);
+  const [posY, setPosY] = useState(2);
 
-  // Polling del backend cada 500 ms
   useEffect(() => {
-    let alive = true
-    const interval = setInterval(() => {
-      fetch('http://localhost:8000/run')
+    const id = setInterval(() => {
+      fetch("http://localhost:8000/run")
         .then(r => r.json())
-        .then(data => {
-          if (!alive || !data?.agents?.length) return
-          const g = data.agents[0]
-          setPosX(Number(g.x))
-          setPosY(Number(g.y))
+        .then(r => {
+          const [x, y] = r.agents[0].pos;
+          setPosX(x);
+          setPosY(y);
         })
-        .catch(() => {})
-    }, 500)
-    return () => { alive = false; clearInterval(interval) }
-  }, [])
+        .catch(console.error);
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
-  // Dibujo del grid + ghost
+  const cell = 25;
+  const offsetX = 250, offsetY = 5;
+
   return (
-    <svg width={WIDTH} height={HEIGHT} xmlns="http://www.w3.org/2000/svg">
-      {MATRIX.map((row, y) =>
-        row.map((val, x) => (
-          <rect
-            key={`${y}-${x}`}
-            x={PADX + CELL * x}
-            y={PADY + CELL * y}
-            width={CELL}
-            height={CELL}
-            fill={val === 1 ? 'lightgray' : 'gray'}
-          />
-        ))
-      )}
-      <image
-        href="/ghost.png"
-        x={PADX + CELL * posX + 5}
-        y={PADY + CELL * posY + 1}
-        width="24"
-        height="24"
-      />
-    </svg>
-  )
+    <div>
+      <svg
+        width={offsetX + cell * matrix[0].length + 50}
+        height={offsetY + cell * matrix.length + 50}
+        xmlns="http://www.w3.org/2000/svg"
+        style={{ backgroundColor: "lightgray" }}
+      >
+        {matrix.map((row, rowidx) =>
+          row.map((value, colidx) => (
+            <rect
+              key={`${rowidx}-${colidx}`}
+              x={offsetX + cell * colidx}
+              y={offsetY + cell * rowidx}
+              width={cell}
+              height={cell}
+              fill={value === 1 ? "#d9d9d9" : "#808080"}
+            />
+          ))
+        )}
+        <image
+          x={offsetX + cell * (posX - 1) + 5}
+          y={offsetY + cell * (posY - 1) + 5}
+          width={cell - 10}
+          height={cell - 10}
+          href="/ghost.png"
+        />
+      </svg>
+    </div>
+  );
 }
