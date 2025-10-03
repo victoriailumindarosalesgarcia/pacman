@@ -1,56 +1,63 @@
 using Agents
 using Random
 
-const GRID_DIMS = (5, 5)
-const START_POS = (3, 3)
-const DIRECTIONS = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
-@agent struct Ghost(GridAgent{2})
-    type::String = "Ghost"
-end
+const M = [
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0;
+    0 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 0;
+    0 1 0 1 0 0 0 1 1 1 0 1 0 1 0 1 0;
+    0 1 1 1 0 1 0 0 0 0 0 1 0 1 1 1 0;
+    0 1 0 0 0 1 1 1 1 1 1 1 0 0 0 1 0;
+    0 1 0 1 0 1 0 0 0 0 0 1 1 1 0 1 0;
+    0 1 1 1 0 1 0 1 1 1 0 1 0 1 0 1 0;
+    0 1 0 1 0 1 0 1 1 1 0 1 0 1 0 1 0;
+    0 1 0 1 1 1 0 0 1 0 0 1 0 1 1 1 0;
+    0 1 0 0 0 1 1 1 1 1 1 1 0 0 0 1 0;
+    0 1 1 1 0 1 0 0 0 0 0 1 0 1 1 1 0;
+    0 1 0 1 0 1 0 1 1 1 0 0 0 1 0 1 0;
+    0 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 0;
+    0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+]
 
-function agent_step!(agent, model)
-    new_pos = choose_next_position(agent.pos, model)
-    isnothing(new_pos) && return
-    move_agent!(agent, new_pos, model)
-end
+is_free(x::Int, y::Int) =
+    1 ≤ y ≤ size(M, 1) && 1 ≤ x ≤ size(M, 2) && M[y, x] == 1
 
-function choose_next_position(position, model)
-    dims = GRID_DIMS
-    candidates = Tuple{Int, Int}[]
-    for (dx, dy) in DIRECTIONS
-        trial = (position[1] + dx, position[2] + dy)
-        if is_valid_position(trial, dims)
-            push!(candidates, trial)
-        end
-    end
-    isempty(candidates) && return nothing
-    return rand(model.rng, candidates)
-end
-
-@inline function is_valid_position(pos::Tuple{Int, Int}, dims::Tuple{Int, Int})
-    return 1 <= pos[1] <= dims[1] && 1 <= pos[2] <= dims[2]
+@agent Ghost GridAgent{2} begin
+    type::String
 end
 
 function initialize_model()
-    space = GridSpace(GRID_DIMS; periodic = false, metric = :manhattan)
+    dims = (size(M, 2), size(M, 1))
+    space = GridSpace(dims; periodic=false, metric=:manhattan)
     model = StandardABM(Ghost, space; agent_step!)
-    add_agent!(Ghost, pos = START_POS, model)
+
+    start = (1, 1)
+    if !is_free(start[1], start[2])
+        found = false
+        for y in 1:size(M, 1), x in 1:size(M, 2)
+            if is_free(x, y)
+                start = (x, y);
+                found = true; break
+            end
+        end
+        @assert found "No hay celdas libres en la matriz del laberinto."
+    end
+
+    add_agent!(Ghost, model; pos=start, type="Ghost")
     return model
 end
 
-function agent_state(agent)
-    return Dict(
-        :id => agent.id,
-        :type => agent.type,
-        :pos => collect(agent.pos),
-    )
+function agent_step!(agent::Ghost, model)
+    x, y = agent.pos
+    candidates = ((x+1, y), (x-1, y), (x, y+1), (x, y-1))
+    valid = Tuple{Int,Int}[]
+    for (nx, ny) in candidates
+        if is_free(nx, ny)
+            push!(valid, (nx, ny))
+        end
+    end
+   
+    if !isempty(valid)
+        move_agent!(agent, rand(valid), model)
+    end
 end
-
-function model_state(model)
-    return Dict(
-        :agents => [agent_state(agent) for agent in allagents(model)],
-    )
-end
-
-model = initialize_model()
